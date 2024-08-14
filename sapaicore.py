@@ -109,8 +109,6 @@ class Pipeline:
             'Content-Type': 'application/json',
         }
 
-        print(f"user messages:{user_message}")
-
         complete_messages = [
             {
                 "role": msg["role"], 
@@ -130,9 +128,7 @@ class Pipeline:
             }
 
             if body.get("stream", False):
-               # Streaming is not working for now for the anthropic models.
-               #return self.stream_response_claude(payload, headers, model_id)
-               return self.get_completion_claude(payload, headers, model_id)
+               return self.stream_response_claude(payload, headers, model_id)
             else:
                 return self.get_completion_claude(payload, headers, model_id)
 
@@ -182,7 +178,7 @@ class Pipeline:
             raise Exception(f"Error: {response.status_code} - {response.text}")
 
     def stream_response_claude(self, payload: dict, headers: dict, model_id: str) -> Generator:
-        url = f"{self.valves.AI_CORE_BASE_URL}/inference/deployments/{model_id}/invoke"
+        url = f"{self.valves.AI_CORE_BASE_URL}/inference/deployments/{model_id}/invoke-with-response-stream"
 
         response = requests.post(url, headers=headers, json=payload, stream=True)
         if response.status_code == 200:
@@ -190,10 +186,12 @@ class Pipeline:
             for event in client.events():
                 try:
                     data = json.loads(event.data)
-                    if 'messages' in data:
-                        for message in data['messages']:
-                            if 'content' in message:
-                                yield message['content'][0]["text"] if "text" in message['content'][0] else ""
+                    
+                    # Check for content_block_delta to yield text
+                    if 'delta' in data and data['delta'].get('type') == 'text_delta':
+                        text_delta = data['delta'].get('text', '')
+                        yield text_delta
+
                 except json.JSONDecodeError:
                     print(f"Failed to parse JSON: {event.data}")
                 except KeyError as e:
@@ -202,10 +200,10 @@ class Pipeline:
         else:
             raise Exception(f"Error: {response.status_code} - {response.text}")
 
+
     def get_completion_claude(self, payload: dict, headers: dict, model_id: str) -> str:
         url = f"{self.valves.AI_CORE_BASE_URL}/inference/deployments/{model_id}/invoke"
         response = requests.post(url, headers=headers, json=payload)
-        print(response.content)
         if response.status_code == 200:
             res = response.json()
             return res["content"][0]["text"] if "content" in res and res["content"] else ""

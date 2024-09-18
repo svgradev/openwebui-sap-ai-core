@@ -67,6 +67,7 @@ class Pipeline:
             return [
                 {
                     "id": deployment["id"],
+                    "model": f"{deployment['details']['resources']['backend_details']['model']['name']}",
                     "name": f"{deployment['details']['resources']['backend_details']['model']['name']}:{deployment['details']['resources']['backend_details']['model']['version']}"
                 }
                 for deployment in deployments if deployment["targetStatus"] == "RUNNING"
@@ -81,7 +82,7 @@ class Pipeline:
     def get_model_name(self, model_id: str) -> str:
         for pipeline in self.pipelines:
             if pipeline['id'] == model_id:
-                return pipeline['name']
+                return pipeline['model']
         return ""
 
     def authenticate(self):
@@ -132,7 +133,16 @@ class Pipeline:
             else:
                 return self.get_completion_claude(payload, headers, model_id)
 
-        else:             
+        elif model_name.lower().startswith('mistral') or model_name.lower().startswith('meta'):
+            payload = {
+                "model": model_name,
+                "messages": complete_messages,
+                "max_tokens": 4096,
+            }
+
+            return self.get_completion_mistral(payload, headers, model_id)
+
+        else:
             payload = {
                 "messages": complete_messages,
                 "max_tokens": 4096,
@@ -207,5 +217,14 @@ class Pipeline:
         if response.status_code == 200:
             res = response.json()
             return res["content"][0]["text"] if "content" in res and res["content"] else ""
+        else:
+            raise Exception(f"Error: {response.status_code} - {response.text}")
+
+    def get_completion_mistral(self, payload: dict, headers: dict, model_id: str) -> str:
+        url = f"{self.valves.AI_CORE_BASE_URL}/inference/deployments/{model_id}/chat/completions"
+        response = requests.post(url, headers=headers, json=payload)
+        if response.status_code == 200:
+            res = response.json()
+            return res["choices"][0]["message"]["content"] if "choices" in res and res["choices"] else ""
         else:
             raise Exception(f"Error: {response.status_code} - {response.text}")

@@ -110,53 +110,79 @@ class Pipeline:
             'Content-Type': 'application/json',
         }
 
-        complete_messages = [
-            {
-                "role": msg["role"], 
-                "content": [{"type": "text", "text": msg["content"]}]
-            } 
-            for msg in messages
-        ]
-        #complete_messages.append({"role": "user", "content": [{"type": "text", "text": user_message}]})
-
-        payload = {}
-        if model_name.lower().startswith('anthropic'):
+        if model_name.lower().startswith('gemini'):
+            complete_messages = [
+                {
+                    "role": msg["role"],
+                    "parts": [
+                        {"text": msg["content"]}
+                    ]
+                }
+                for msg in messages
+            ]
+            complete_messages.append({
+                "role": "user",
+                "parts": [
+                    {"text": user_message}
+                ]
+            })
             payload = {
-                "anthropic_version": "bedrock-2023-05-31",
-                "messages": complete_messages,
-                "max_tokens": 4096,
-                "temperature": 0.7
+                "generation_config": {
+                    "maxOutputTokens": 4096
+                },
+                "contents": complete_messages,
             }
 
-            if body.get("stream", False):
-               return self.stream_response_claude(payload, headers, model_id)
-            else:
-                return self.get_completion_claude(payload, headers, model_id)
-
-        elif model_name.lower().startswith('mistral') or model_name.lower().startswith('meta'):
-            payload = {
-                "model": model_name,
-                "messages": complete_messages,
-                "max_tokens": 4096,
-            }
-
-            return self.get_completion_mistral(payload, headers, model_id)
-
+            return self.get_completion_gemini(payload, headers, model_id, model_name)
         else:
-            payload = {
-                "messages": complete_messages,
-                "max_tokens": 4096,
-                "temperature": 0.7,
-                "frequency_penalty": 0,
-                "presence_penalty": 0,
-                "stop": "null",
-                "stream": body.get("stream", False),
-            }
 
-            if body.get("stream", False):
-                return self.stream_response_gpt(payload, headers, model_id)
+            complete_messages = [
+                {
+                    "role": msg["role"], 
+                    "content": [{"type": "text", "text": msg["content"]}]
+                } 
+                for msg in messages
+            ]
+            #complete_messages.append({"role": "user", "content": [{"type": "text", "text": user_message}]})
+
+            payload = {}
+            if model_name.lower().startswith('anthropic'):
+                payload = {
+                    "anthropic_version": "bedrock-2023-05-31",
+                    "messages": complete_messages,
+                    "max_tokens": 4096,
+                    "temperature": 0.7
+                }
+
+                if body.get("stream", False):
+                    return self.stream_response_claude(payload, headers, model_id)
+                else:
+                    return self.get_completion_claude(payload, headers, model_id)
+
+            elif model_name.lower().startswith('mistral') or model_name.lower().startswith('meta'):
+                payload = {
+                    "model": model_name,
+                    "messages": complete_messages,
+                    "max_tokens": 4096,
+                }
+
+                return self.get_completion_opensource(payload, headers, model_id)
+
             else:
-                return self.get_completion_gpt(payload, headers, model_id)
+                payload = {
+                    "messages": complete_messages,
+                    "max_tokens": 4096,
+                    "temperature": 0.7,
+                    "frequency_penalty": 0,
+                    "presence_penalty": 0,
+                    "stop": "null",
+                    "stream": body.get("stream", False),
+                }
+
+                if body.get("stream", False):
+                    return self.stream_response_gpt(payload, headers, model_id)
+                else:
+                    return self.get_completion_gpt(payload, headers, model_id)
         
     def stream_response_gpt(self, payload: dict, headers: dict, model_id: str) -> Generator:
         url = f"{self.valves.AI_CORE_BASE_URL}/inference/deployments/{model_id}/chat/completions?api-version=2023-05-15"
@@ -220,11 +246,20 @@ class Pipeline:
         else:
             raise Exception(f"Error: {response.status_code} - {response.text}")
 
-    def get_completion_mistral(self, payload: dict, headers: dict, model_id: str) -> str:
+    def get_completion_opensource(self, payload: dict, headers: dict, model_id: str) -> str:
         url = f"{self.valves.AI_CORE_BASE_URL}/inference/deployments/{model_id}/chat/completions"
         response = requests.post(url, headers=headers, json=payload)
         if response.status_code == 200:
             res = response.json()
             return res["choices"][0]["message"]["content"] if "choices" in res and res["choices"] else ""
+        else:
+            raise Exception(f"Error: {response.status_code} - {response.text}")
+
+    def get_completion_gemini(self, payload: dict, headers: dict, model_id: str, model_name: str) -> str:
+        url = f"{self.valves.AI_CORE_BASE_URL}/inference/deployments/{model_id}/models/{model_name}:generateContent"
+        response = requests.post(url, headers=headers, json=payload)
+        if response.status_code == 200:
+            res = response.json()
+            return res["candidates"][0]["content"]["parts"][0]["text"] if "candidates" in res and res["candidates"] else ""
         else:
             raise Exception(f"Error: {response.status_code} - {response.text}")

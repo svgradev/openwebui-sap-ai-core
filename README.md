@@ -11,6 +11,7 @@ This extension enables OpenWebUI users to:
 1. Connect to SAP AI Core
 2. List available deployments from SAP AI Core Instance
 3. Use SAP AI Core deployments as models within OpenWebUI
+4. Access a wider range of AI models supported by SAP AI Core
 
 ## Configuration
 
@@ -19,7 +20,7 @@ To use this extension, you need to configure the following parameters in the Pip
 ```
 Ai Core Client Id: Your SAP AI Core client ID
 Ai Core Client Secret: Your SAP AI Core client secret
-Ai Core Token Url: The token URL for authentication (e.g., "https://<account>.authentication.sap.hana.ondemand.com/oauth/token")
+Ai Core Auth Url: The token URL for authentication (e.g., "https://<account>.authentication.sap.hana.ondemand.com")
 Ai Core Base Url: The base URL for SAP AI Core API (e.g., "https://api.ai.<region>.aws.ml.hana.ondemand.com/v2")
 ```
 
@@ -37,13 +38,16 @@ These parameters are essential for authenticating and connecting to your SAP AI 
    - Click the download button to import the pipeline.
 3. Once OpenWebUI finishes importing, it will prompt you to configure the connection:
    - Fill in the required fields with your SAP AI Core credentials and endpoints.
-4. After configuration, all available and running deployments in SAP AI Core will be automatically listed as models within OpenWebUI.
+4. After configuration, all available and running deployments in SAP AI Core that are supported by the generative-ai-hub-sdk will be automatically listed as models within OpenWebUI.
 5. Select the desired SAP AI Core deployment from the model list in OpenWebUI to use it for inference.
+6. To check which models are currently supported, visit the [SAP Generative AI Hub SDK documentation](https://help.sap.com/doc/generative-ai-hub-sdk/CLOUD/en-US/_reference/README_sphynx.html#llm-models).
+
 ## Important Notes
 
 - This extension requires an active SAP AI Core account and properly configured deployments.
 - Only deployments with a "RUNNING" status in SAP AI Core will be available in OpenWebUI.
-- The extension currently supports GPT and Anthropic API models. Support for additional models is planned for coming updates.
+- The extension now uses the generative-ai-hub-sdk and langchain, increasing support for various AI models.
+- Supported models include, but are not limited to, GPT and Anthropic API models. For a complete list of supported models, refer to the SAP Generative AI Hub SDK documentation.
 
 ## Future Enhancements
 

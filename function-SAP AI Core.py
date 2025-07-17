@@ -1,6 +1,6 @@
 """
 title: SAP AI Core
-author: schardosin
+author: sgradev
 date: 2025-07-07
 version: 7.5 (Stable)
 license: MIT
@@ -211,6 +211,26 @@ class Pipe:
             # Look up the real deployment ID using the correct model name
             deployment_id = self._get_deployment_id_for_model(model_id)
             messages = body.get("messages", [])
+
+            # Tool context injection for consistent tool usage
+            tools = body.get("tools", [])
+            if tools:
+                tool_names = [tool.get("name", "unknown") for tool in tools]
+                tool_context = f"""You have access to the following tools: {', '.join(tool_names)}.
+
+                IMPORTANT: When users request actions that can be performed by available tools, you MUST use the appropriate tool to perform the actual operation. Do not simulate, describe, or provide theoretical responses when a tool can do the real work.
+
+                Guidelines:
+                - Always prefer using tools over providing explanatory responses
+                - Use tools to perform actual operations, not just to gather information for responses
+                - If a user asks for something a tool can do, use the tool immediately
+                - Be proactive in identifying when tools should be used
+
+                Available tools: {', '.join(tool_names)}"""
+                
+                # Insert tool context as first system message
+                messages.insert(0, {"role": "system", "content": tool_context})
+                print(f"Added tool context for {len(tools)} tools: {tool_names}")
 
             # --- Model-specific URL and Payload Construction ---
 
